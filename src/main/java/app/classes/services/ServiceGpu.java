@@ -1,15 +1,18 @@
 package app.classes.services;
 
 import app.classes.models.Property;
+import com.sun.org.apache.regexp.internal.RE;
 import lombok.extern.log4j.Log4j;
-import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.*;
+import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.UnknownFormatConversionException;
 
 /**
  * Created by Сергей on 05.07.2017.
@@ -22,48 +25,83 @@ public class ServiceGpu {
     Property property;
 
     public static void main(String[] args) {
-        ServiceGpu serviceGpu  = new ServiceGpu();
+        ServiceGpu serviceGpu = new ServiceGpu();
         serviceGpu.property = new Property();
-        serviceGpu.property.setPathToLog("log.txt");
+        serviceGpu.property.init();
         System.out.println(serviceGpu.getInformation());
     }
+
     public String getInformation() {
         String[] fullInformation;
 
         String temperature = "";
         String totalMhs = "";
         String mhs = "";
+        BufferedReader bufferedReader = null;
+        try {
+            bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(new File(property.getPathToLog())), Charset.forName(property.getCharset())));
 
-        while (temperature.isEmpty() || totalMhs.isEmpty() || mhs.isEmpty()) {
-            fullInformation = getLastTenStrokeDebug();
 
-            for (int i = fullInformation.length - 1; i > 0; i--) {
-                String currentStroke = fullInformation[i];
+            String line;
 
-                if (currentStroke.contains("t=") && currentStroke.contains("fan")) {
+            while ((line = bufferedReader.readLine()) != null) {
+
+                String currentStroke = line;
+
+                if (currentStroke.contains(property.getTemperatureArg())) {
                     temperature = currentStroke;
-                    System.out.println(temperature);
                 }
-                if (currentStroke.contains("Total Speed:")) {
+                if (currentStroke.contains(property.getTotalArg())) {
                     totalMhs = currentStroke;
-                    System.out.println(totalMhs);
                 }
-                if (currentStroke.contains("ETH: GPU0")) {
+                if (currentStroke.contains(property.getMhsArg())) {
                     mhs = currentStroke;
-                    System.out.println(mhs);
                 }
-                if (!temperature.isEmpty() && !totalMhs.isEmpty() && !mhs.isEmpty()) break;
+//                if (!temperature.isEmpty() && !totalMhs.isEmpty() && !mhs.isEmpty()) break;
             }
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
+        } catch (
+                FileNotFoundException e) {
+            log.error(e.getMessage(), e);
+        } catch (
+                IOException e)
+
+        {
+            log.error(e.getMessage(), e);
         }
 
-        return ("\uD83D\uDD6F\uD83D\uDD6F\uD83D\uDD6F\nТемпература:\n" + Arrays.asList(temperature.split("GPU")).subList(1, temperature.split("GPU").length) + "\nОбщая мощность:\n" + totalMhs.substring(totalMhs.indexOf("ETH"), totalMhs.indexOf(",")) + "\nМощность:\n" + Arrays.asList(mhs.split("GPU")).subList(1, mhs.split("GPU").length)).replaceAll(",","\n").replaceAll("\\[","").replaceAll("]","");
+        if (temperature.isEmpty()) {
+            temperature = "Температура не найдено!";
+        }
+        if (totalMhs.isEmpty()) {
+            totalMhs = "Общее кол-во мощности не найдено!";
+        }
+        if (mhs.isEmpty()) {
+            mhs = "Кол-во мощности каждой видеокарты не найдено!";
+        }
+
+
+//        return mhs;
+        return "\uD83D\uDD6F\uD83D\uDD6F\uD83D\uDD6F" + property.getName() + "\nТемпература:\n" + parse(temperature) +
+                "\nОбщая мощность: \n" + parse(totalMhs) + "\nМощность: \n" + parse(mhs);
+
     }
 
+    private String parse(String stroke) {
+        switch (property.getType()){
+            case "0":{
+                if (stroke.split("\t").length < 2) return  "Некорректная обработка!";
+                if (stroke.split("\t")[2].indexOf(",") == -1) return  "Некорректная обработка!";
+
+
+                return "Дата: " + stroke.split("\t")[0] + "\n" + stroke.split("\t")[2].replaceAll(",", "\n") + "\n";
+            }
+            case "1":{
+                return stroke;
+            }
+            default: return "Некорректная обработка!";
+        }
+
+    }
 //    public String formatLineLog(String line, int fistSymbol, int secondSymbol, String symbol) {
 //        return line.substring(line.indexOf(symbol, fistSymbol) + 1, line.indexOf(symbol, secondSymbol));
 //    }
@@ -76,7 +114,7 @@ public class ServiceGpu {
         for (String stroke : strokes) {
             result += stroke + "\n";
         }
-        return "\uD83D\uDEE0\uD83D\uDEE0\uD83D\uDEE0\n" + result;
+        return "\uD83D\uDEE0\uD83D\uDEE0\uD83D\uDEE0" + property.getName() + "\n" + result;
     }
 
     private String[] getLastTenStrokeDebug() {
@@ -100,6 +138,35 @@ public class ServiceGpu {
 
         } catch (IOException e) {
             log.error("textFromFile", e);
+        }
+        return null;
+    }
+
+    public InputStream getScreenshot() {
+        BufferedImage bufferedImage = screenshot();
+        if (bufferedImage == null) {
+            return null;
+        }
+
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
+        try {
+            ImageIO.write(bufferedImage, "png", os);
+        } catch (IOException e) {
+            log.error(e.getMessage(), e);
+        }
+        InputStream is = new ByteArrayInputStream(os.toByteArray());
+        return is;
+    }
+
+    private BufferedImage screenshot() {
+        try {
+            BufferedImage image = new Robot().createScreenCapture(new Rectangle(Toolkit.getDefaultToolkit().getScreenSize()));
+            ImageIO.write(image, "png", new File("screenshot.png"));
+            return image;
+        } catch (AWTException e) {
+            log.error(e.getMessage(), e);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         return null;
     }

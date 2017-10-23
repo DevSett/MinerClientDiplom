@@ -10,7 +10,6 @@ import java.io.IOException;
 
 @Component("shutdownServices")
 @Value
-@AllArgsConstructor
 @NoArgsConstructor
 @Log4j
 public class ShutdownServices {

@@ -3,7 +3,6 @@ package app.classes.models;
 import lombok.*;
 
 @AllArgsConstructor
-@NoArgsConstructor
 @Data
 public class ReciveCommand {
 
@@ -21,6 +20,9 @@ public class ReciveCommand {
 
     private boolean service_shutdown_rig;
 
+    private boolean screenshot;
+
+    private boolean getName;
 
 
 }

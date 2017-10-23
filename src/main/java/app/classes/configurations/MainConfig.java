@@ -7,6 +7,7 @@ import app.classes.services.ServiceGpu;
 import app.classes.services.ShutdownServices;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Scope;
 
 /**
  * Created by Сергей on 05.07.2017.
@@ -25,6 +26,7 @@ public class MainConfig {
     }
 
     @Bean
+    @Scope("prototype")
     public Client client(){return new Client();}
 
     @Bean

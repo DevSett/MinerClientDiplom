@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 public class SendInformation {
 
     private String id;
+
+    private String nameRig;
+
     private String information;
 
 }
